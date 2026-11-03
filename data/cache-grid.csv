@@ -1,0 +1,21 @@
+ram_cache_budget_gib,gpu_weight_budget_gib,decode_tokens_per_s,processes,source
+20,12,3.299,2,manuscript Table V
+20,16,3.715,1,manuscript Table V
+20,20,3.872,1,manuscript Table V
+20,24,3.91,2,manuscript Table V
+60,12,5.709,1,manuscript Table V
+60,16,5.899,1,manuscript Table V
+60,20,5.751,1,manuscript Table V
+60,24,5.777,1,manuscript Table V
+100,12,6.583,1,manuscript Table V
+100,16,7.224,1,manuscript Table V
+100,20,7.414,2,manuscript Table V
+100,24,7.563,1,manuscript Table V
+140,12,6.801,1,manuscript Table V
+140,16,7.481,1,manuscript Table V
+140,20,7.949,1,manuscript Table V
+140,24,7.938,2,manuscript Table V
+160,12,6.803,1,manuscript Table V
+160,16,7.529,1,manuscript Table V
+160,20,7.99,1,manuscript Table V
+160,24,8.024,2,manuscript Table V
