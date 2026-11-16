@@ -1,31 +1,49 @@
-const locale = window.LUMI_ZH || {};
-const t = text => locale.labels?.[text] ?? text;
-const $=s=>document.querySelector(s);let resultData=null,currentFilter='all';
-const catalog=[
- {id:'DeepSeek-V4.1-Flash-1017',disk:'900 GiB (NVFP4); 1.1 TiB (official FP8)',scope:'Paper reports source-precision NVFP4 paths. RTX 5090 Laptop: 8.024 tok/s, 160 GiB L2, 8K capacity. RTX 5070 Ti Laptop: 4.336 tok/s, resource-adapted snapshot, 39.312 GiB L2, 2K capacity.',status:'Paper-measured; validate the chosen serving path.'},
- {id:'DeepSeek-V4-Flash-0731',disk:'350 GiB estimate',scope:'Paper reports 7.174 tok/s on a 12 GB RTX 5070 Ti Laptop. FP8 head/wo_a caches change precision. One warmed request, not independent-process repeats.',status:'Paper-measured; PA protocol is runner-dependent.'},
- {id:'DeepSeek-V4-Pro',disk:'1.7 TiB',scope:'Paper reports 1.97 tok/s on a 24 GB RTX 5090 Laptop, 160 GiB L2 and 16K capacity. Routed experts retain native FP4; selected dense projections use runtime FP4 caches.',status:'Dedicated low-VRAM recipe; substantial RAM and storage required.'},
- {id:'GLM-5.3',disk:'950 GiB',scope:'Paper reports 2.25 tok/s on a 24 GB RTX 5090 Laptop, 160 GiB L2 and 4K capacity. NVFP4 experts and block-FP8 dense cache; enough free host pages are required.',status:'Paper-measured dedicated path; verify serving compatibility.'},
- {id:'Muse Spark Open',disk:'1.1 TiB plus optional sidecars',scope:'Paper reports an experimental 2.164 tok/s mixed-cache path. It fails the provisional numerical gate. This is not a source-precision result or evidence of unchanged task accuracy.',status:'Experimental runner; HTTP serving and PA connection are not established.'},
- {id:'Qwen3.8-Flash-Next',disk:'Check the selected checkpoint and its conversion requirements.',scope:'Requested model. No performance measurement or verified deployment recipe for this checkpoint is included in the supplied manuscript.',status:'Integration pending; no performance number is claimed.'},
- {id:'Qwen3.6-35B-A3B-NVFP4',disk:'Check source/converted weight sizes and local free space.',scope:'The current Companion research deployment uses this checkpoint through LUMI. Its HTTP request rate is not interchangeable with the manuscript decode measurements.',status:'Current PA deployment verified; not a paper benchmark row.'}
-];
-function element(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e}
-function toast(text){$('#toast').textContent=text;$('#toast').classList.remove('hidden');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.add('hidden'),4500)}
-function renderDeployments(){const body=$('#deploymentRows');body.replaceChildren();const rows=resultData.deployments.filter(r=>currentFilter==='all'||r.vram_gb===Number(currentFilter));$('#modelCount').textContent=rows.length+t(' reported operating points');for(const r of rows){const tr=document.createElement('tr');const name=element('td',r.model);name.append(element('small',t('Manuscript · Table ')+r.table));tr.append(name);const hw=element('td',r.vram_gb+' GB · '+r.platform);hw.append(element('small',r.l2_gib+t(' GiB L2 budget')));tr.append(hw);const speed=element('td',r.decode_tps.toFixed(r.decode_tps===1.97||r.decode_tps===2.25?2:3),'tps');speed.append(element('small',t('tokens/s · decode only')));tr.append(speed,element('td',r.context.replace(' capacity',t(' capacity')),'table-context'));const translated=locale.deployments?.[r.id];const precision=element('td',translated?.[0] ?? r.precision);let notes=r.notes;if(r.id==='v41-5070')notes=t('Imported two-process resource-adapted snapshot. Original machine logs were not supplied for independent revalidation.');precision.append(element('small',translated?.[1] ?? notes));tr.append(precision);body.append(tr)}}
-function renderPlan(){const item=catalog.find(x=>x.id===$('#modelSelect').value)||catalog[0],port=Number($('#apiPort').value),box=$('#modelPlan');const [diskSpace,scope,status]=locale.catalog?.[item.id] ?? [item.disk,item.scope,item.status];box.replaceChildren();box.append(element('strong',status),element('p',scope));const disk=element('p',t('Storage planning: ')+diskSpace+t('. These are setup estimates, not measured performance or universal minimum requirements.'));box.append(disk);if(!Number.isInteger(port)||port<1024||port>65535){box.append(element('p',t('Choose a local port from 1024 to 65535.')));return}box.append(element('code',t('LUMI endpoint: http://127.0.0.1:')+port),element('p',t('Select a model actually returned by that server’s /v1/models endpoint. A catalog name alone does not load weights or prove protocol support.')))}
-const deployment = window.LUMI_SITE || {};
-async function loadStatus(){
- const companion=$('#companionLink'),monitor=$('#monitorLink');
- if(deployment.companionOrigin){try{const origin=new URL(deployment.companionOrigin);if(!['http:','https:'].includes(origin.protocol)||origin.username||origin.password)throw Error('origin');companion.href=origin.origin+'/';monitor.href=origin.origin+'/monitor';companion.textContent=t('Open Companion ↗');monitor.textContent=t('View its monitor ↗')}catch{$('#liveStatus').textContent=t('Deployment configuration is invalid');return}}
- if(!deployment.statusEndpoint){$('#liveStatus').textContent=t('Run Companion with your own local LUMI deployment');return}
- try{const r=await fetch(deployment.statusEndpoint,{cache:'no-store'});if(!r.ok)throw Error('status');const d=await r.json();$('#statusDot').classList.toggle('online',d.companion_ready&&d.lumi_ready);$('#liveStatus').textContent=d.companion_ready&&d.lumi_ready?t('Configured Companion is online · powered by LUMI'):t('Configured deployment is temporarily unavailable');$('#liveModel').textContent=d.model?d.model+(d.version?' · LUMI '+d.version:''):''}catch{$('#liveStatus').textContent=t('Live status unavailable · installation guide remains available');$('#liveModel').textContent='';$('#statusDot').classList.remove('online')}
-}
-async function copyText(text){try{await navigator.clipboard.writeText(text);toast(t('Command copied'))}catch{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.left='-9999px';document.body.append(area);area.select();const ok=document.execCommand('copy');area.remove();toast(ok?t('Command copied'):t('Copy is unavailable; select the command manually.'))}}
-document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copyText($('#'+b.dataset.copy).textContent.trim()));
-document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{currentFilter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('selected',x===b));if(resultData)renderDeployments()});
-$('#modelSelect').onchange=renderPlan;$('#apiPort').oninput=renderPlan;
-for(const item of catalog){const option=element('option',item.id);option.value=item.id;$('#modelSelect').append(option)}renderPlan();
-for(let i=0;i<64;i++)$('#weightGrid').append(document.createElement('i'));
-fetch('./data/results.json').then(r=>{if(!r.ok)throw Error('Data unavailable');return r.json()}).then(d=>{resultData=d;renderDeployments()}).catch(()=>{$('#modelCount').textContent=t('Data temporarily unavailable');toast(t('Could not load the measurement table.'))});
-loadStatus();if(deployment.statusEndpoint)setInterval(loadStatus,30000);
+(() => {
+  const copy = JSON.parse(document.getElementById('demo-content').textContent);
+  const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+  const items = (id, values) => {
+    const list = document.getElementById(id);
+    list.replaceChildren(...values.map(value => {
+      const item = document.createElement('li');
+      item.innerHTML = icon;
+      const label = document.createElement('span'); label.textContent = value;
+      item.append(label); return item;
+    }));
+  };
+  const set = (id, value) => document.getElementById(id).textContent = value;
+  const selectTab = (buttons, button) => buttons.forEach(item => {
+    item.setAttribute('aria-selected', String(item === button));
+    item.tabIndex = item === button ? 0 : -1;
+  });
+  const scenarios = [...document.querySelectorAll('[data-scenario]')];
+  scenarios.forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.scenario);
+    selectTab(scenarios, button);
+    document.getElementById('scenario-panel').setAttribute('aria-labelledby', button.id);
+    set('demo-prompt', copy.demoPrompt[index]); set('demo-reply', copy.demoReply[index]);
+    set('task-title', copy.taskTitles[index]); items('task-list', copy.tasks[index]);
+    document.querySelectorAll('[data-agent]').forEach((agent, i) => agent.classList.toggle('active', i === index));
+    set('approval-result', '');
+  }));
+  const modes = [...document.querySelectorAll('[data-mode]')];
+  modes.forEach(button => button.addEventListener('click', () => {
+    const mode = button.dataset.mode;
+    selectTab(modes, button);
+    document.getElementById('mode-panel').setAttribute('aria-labelledby', button.id);
+    set('mode-title', copy[mode + 'Title']); set('mode-text', copy[mode + 'Text']);
+    items('mode-list', copy[mode + 'Items']); set('mode-foot', copy[mode + 'Foot']);
+    set('device-eyebrow', mode === 'local' ? copy.deviceTitle : copy.connected);
+    set('device-model', mode === 'local' ? copy.deviceModel : (copy.lang === 'en' ? 'YOUR MODEL SERVICE' : '你的模型服务'));
+  }));
+  for (const buttons of [scenarios, modes]) buttons.forEach((button, index) => button.addEventListener('keydown', event => {
+    let next;
+    if (event.key === 'ArrowRight') next = (index + 1) % buttons.length;
+    if (event.key === 'ArrowLeft') next = (index + buttons.length - 1) % buttons.length;
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = buttons.length - 1;
+    if (next === undefined) return;
+    event.preventDefault(); buttons[next].focus(); buttons[next].click();
+  }));
+  document.getElementById('demo-approve').addEventListener('click', () => set('approval-result', copy.approved));
+  document.getElementById('demo-deny').addEventListener('click', () => set('approval-result', copy.denied));
+})();
